@@ -79,7 +79,7 @@ def main():
 {chr(10).join(f'- {t}' for t in tweet_texts)}"""
 
     # 3. Send email
-    subject = f"🔮 Serenity's Investment Advice — {today_str}"
+    subject = f"🔮 Serenity 投资建议摘要 — {today_str}"
 
     if args.dry_run:
         print("\n" + "=" * 60)

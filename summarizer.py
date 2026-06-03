@@ -14,35 +14,32 @@ logger = logging.getLogger(__name__)
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
 DEEPSEEK_MODEL = "deepseek-chat"
 
-SYSTEM_PROMPT = """You are a financial analyst assistant. Your job is to read tweets from
-a crypto/trading influencer named Serenity (@aleabitoreddit) and extract ONLY the
-investment-related advice and market commentary.
+SYSTEM_PROMPT = """你是一名金融分析师助手。你的任务是阅读加密货币/交易领域 KOL Serenity (@aleabitoreddit) 的推文，并仅提取与投资相关的建议和市场评论。
 
-Ignore:
-- Personal anecdotes, jokes, memes, and non-financial chatter
-- Engagement bait ("like and retweet", "drop a 👋", etc.)
-- Vague statements with no actionable substance
+忽略以下内容：
+- 个人轶事、笑话、表情包和非金融闲聊
+- 互动诱导（"点赞转发"、"扣个👋" 等）
+- 没有实质内容的模糊表述
 
-Extract and summarize:
-- Specific coins, tokens, or stocks mentioned (with tickers)
-- Price predictions, entry/exit points, or trade setups
-- Macro market commentary (BTC direction, overall market sentiment)
-- Risk management advice or strategy tips
+提取并总结：
+- 提到的具体代币、股票代码（含代码）
+- 价格预测、进出场点位或交易策略
+- 宏观市场评论（BTC 方向、整体市场情绪）
+- 风险管理建议或策略技巧
 
-Format your response as:
+请用以下格式回复，所有内容使用中文：
 
-📊 **MARKET SENTIMENT**
-[One-line overall vibe: bullish / bearish / neutral / cautious]
+📊 **市场情绪**
+[一句话概括整体氛围：看涨 / 看跌 / 中性 / 谨慎]
 
-💰 **ASSETS & TICKERS MENTIONED**
-- $TICKER — what was said about it
+💰 **涉及的资产与代码**
+- $代码 — 相关评论摘要
 
-🧠 **KEY INVESTMENT INSIGHTS**
-- Bullet points of the most important advice or analysis
+🧠 **关键投资洞察**
+- 最重要的建议或分析要点
 
-⚠️ **DISCLAIMER**
-This is an AI-generated summary of social media content. Not financial advice.
-Always do your own research before investing."""
+⚠️ **免责声明**
+本文为 AI 从社交媒体内容自动生成，不构成投资建议。投资前请务必自行研究。"""
 
 
 def summarize_tweets(tweets_text: list[str], api_key: Optional[str] = None) -> str:
@@ -57,7 +54,7 @@ def summarize_tweets(tweets_text: list[str], api_key: Optional[str] = None) -> s
         Markdown-formatted summary string.
     """
     if not tweets_text:
-        return "_No tweets to summarize today._"
+        return "_今天没有新的推文需要总结。_"
 
     key = api_key or os.environ.get("DEEPSEEK_API_KEY", "")
     if not key:
@@ -67,16 +64,16 @@ def summarize_tweets(tweets_text: list[str], api_key: Optional[str] = None) -> s
 
     # Build the user message — number tweets for reference
     numbered_tweets = "\n\n---\n\n".join(
-        f"Tweet {i+1}:\n{t}" for i, t in enumerate(tweets_text)
+        f"推文 {i+1}:\n{t}" for i, t in enumerate(tweets_text)
     )
 
-    user_prompt = f"""Here are Serenity's tweets from the last 24 hours.
-Summarize any investment advice, trade ideas, or market commentary.
+    user_prompt = f"""以下是 Serenity 过去 24 小时的推文。
+请总结其中的投资建议、交易思路或市场评论。
 
-If there is NO investment-related content in any of these tweets, simply say:
-"No investment advice found in today's tweets."
+如果这些推文中没有任何投资相关内容，请直接回复：
+"今天的推文中未发现投资建议。"
 
-TWEETS:
+推文列表：
 {numbered_tweets}"""
 
     logger.info(f"Sending {len(tweets_text)} tweets to DeepSeek for summarization...")
