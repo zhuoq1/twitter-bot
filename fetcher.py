@@ -30,12 +30,16 @@ SYNDICATION_URL = (
 )
 
 # Public Nitter instances (tried in order for RSS fallback).
-# These can come and go — add/remove as needed.
+# nitter.net is the most reliable — it consistently serves proper RSS when
+# browser-like User-Agent and Accept headers are used.
+# poast.org works intermittently (Cloudflare challenge sometimes blocks it).
+# Others are fallbacks that may or may not be alive.
 NITTER_INSTANCES = [
+    "https://nitter.net",
     "https://nitter.poast.org",
+    "https://nitter.catsarch.com",
     "https://nitter.privacydev.net",
     "https://nitter.1d4.us",
-    "https://nitter.net",
 ]
 
 REQUEST_TIMEOUT = 30  # seconds
@@ -85,11 +89,23 @@ def _parse_twitter_date(date_str: str) -> Optional[datetime]:
 
 
 def _parse_rss_date(date_str: str) -> Optional[datetime]:
-    """Parse RFC 2822 date from RSS feed (e.g. 'Wed, 03 Jun 2026 10:00:00 GMT')."""
+    """Parse pubDate from RSS feed. Tries RFC 2822 first, then common ISO formats."""
+    # RFC 2822 (most common in RSS: 'Wed, 03 Jun 2026 14:14:28 GMT')
     try:
         return parsedate_to_datetime(date_str).astimezone(timezone.utc)
     except (ValueError, TypeError):
         pass
+
+    # ISO 8601 variants
+    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d %H:%M:%S"):
+        try:
+            dt = datetime.strptime(date_str, fmt)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
+        except (ValueError, TypeError):
+            continue
+
     return None
 
 
@@ -228,7 +244,11 @@ def _parse_nitter_rss(xml_text: str, username: str) -> list[Tweet]:
 
         published = _parse_rss_date(pub_date)
         if not published:
-            continue
+            # Don't drop the tweet — use current time as rough fallback
+            logger.debug(
+                f"Could not parse pubDate '{pub_date}', using current time as fallback"
+            )
+            published = datetime.now(timezone.utc)
 
         # Extract tweet ID from the link (last path segment)
         tweet_id = ""
@@ -265,6 +285,16 @@ def _fetch_via_nitter_rss(username: str, hours: int) -> FetchResult:
 
             if not resp.ok:
                 logger.warning(f"Nitter {instance} returned {resp.status_code}, trying next...")
+                continue
+
+            # Skip Cloudflare/JS challenge pages masquerading as 200
+            content_type = resp.headers.get("content-type", "")
+            if resp.text and "text/html" in content_type and "<!DOCTYPE html>" in resp.text[:200]:
+                logger.warning(f"Nitter {instance} returned HTML (likely JS challenge), trying next...")
+                continue
+
+            if not resp.text or len(resp.text) < 100:
+                logger.warning(f"Nitter {instance} returned empty/short response ({len(resp.text)}B), trying next...")
                 continue
 
             tweets = _parse_nitter_rss(resp.text, username)

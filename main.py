@@ -54,7 +54,7 @@ def main():
     logger.info(f"=== Serenity Bot — {today_str} ===")
 
     # 1. Fetch tweets
-    logger.info("Step 1/3: Fetching tweets (syndication → Nitter RSS fallback)...")
+    logger.info(f"Step 1/3: Fetching tweets from last {args.hours}h (syndication → Nitter RSS fallback)...")
     result = fetch_recent_tweets(username="aleabitoreddit", hours=args.hours)
 
     if result.error and not result.tweets:
