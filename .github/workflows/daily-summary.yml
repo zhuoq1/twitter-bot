@@ -1,0 +1,32 @@
+name: Daily Serenity Summary
+
+on:
+  schedule:
+    # Runs at 10:00 PM JST (UTC+9) = 1:00 PM UTC every day
+    - cron: "0 13 * * *"
+  workflow_dispatch: {}  # allow manual trigger
+
+jobs:
+  summarize-and-email:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv pip install --system -r requirements.txt
+
+      - name: Run Serenity Bot
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          TO_EMAIL: ${{ secrets.TO_EMAIL }}
+        run: python main.py
